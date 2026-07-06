@@ -3,7 +3,8 @@
 管理你的碎片化知识~以标签体系为核心的桌面知识管理工具。从任何地方复制内容，点击悬浮按钮，打上标签，知识即刻入库。
 
 > "一条一条的知识点，慢慢积累成千点。"
-![Uploading 156a6df7201fc9add26593aa4f952807.png…]()
+<img width="3609" height="1845" alt="156a6df7201fc9add26593aa4f952807" src="https://github.com/user-attachments/assets/d2b250aa-7105-4510-9e39-c15336f81494" />
+
 
 ## 功能特性
 
