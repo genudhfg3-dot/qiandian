@@ -1,0 +1,5 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Personal Knowledge Base icon placeholder">
+  <rect width="256" height="256" rx="48" fill="#f8f0de"/>
+  <path d="M70 62h116c9 0 16 7 16 16v100c0 9-7 16-16 16H70c-9 0-16-7-16-16V78c0-9 7-16 16-16Z" fill="#2f2a24"/>
+  <path d="M84 92h88M84 124h70M84 156h96" stroke="#f8f0de" stroke-width="14" stroke-linecap="round"/>
+</svg>

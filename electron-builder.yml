@@ -1,0 +1,39 @@
+﻿appId: local.personal-knowledge-base
+productName: 千点
+electronDist: node_modules/electron/dist
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - dist-electron/main.cjs
+  - dist-electron/preload.cjs
+  - package.json
+  - node_modules/better-sqlite3/**/*
+  - node_modules/active-win/**/*
+  - node_modules/bindings/**/*
+  - node_modules/file-uri-to-path/**/*
+  - node_modules/node-gyp-build-optional-packages/**/*
+  - node_modules/node-addon-api/**/*
+extraResources:
+  - from: build/app.ico
+    to: build/app.ico
+asarUnpack:
+  - node_modules/better-sqlite3/**
+  - node_modules/active-win/**
+  - node_modules/node-gyp-build-optional-packages/**
+win:
+  icon: build/app.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: '${productName}-${version}-${arch}.${ext}'
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+publish: null
+npmRebuild: false
+buildDependenciesFromSource: false

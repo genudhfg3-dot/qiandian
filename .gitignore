@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-electron/
+release/
+
+# Cache
+.tmp/
+.npm-cache/
+.electron-cache/
+.electron-builder-cache/
+
+# Build info
+*.tsbuildinfo
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.*
+
+# Database & data (user-specific, not part of the app)
+*.db
+*.bin
+*.dat
+*.stat
+*.config
+Backup/
+
+# Archives
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db

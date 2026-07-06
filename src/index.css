@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #F8F0DE;
+  --color-cream-soft: #F4EBD3;
+  --color-surface: #FFFCF4;
+  --color-hairline: #DAC9A4;
+  --color-hairline-soft: #E8D6B5;
+  --color-ink: #1F1812;
+  --color-soft-ink: #6E5D48;
+  --color-faint: #998871;
+
+  --color-terracotta: #D6532E;
+  --color-terracotta-fg: #FFF6E8;
+  --color-mustard: #D9A02C;
+  --color-mustard-fg: #2A1808;
+  --color-teal-deep: #0A6664;
+  --color-teal-deep-fg: #E3F7E8;
+  --color-plum: #8C2860;
+  --color-plum-fg: #FFEAE0;
+  --color-olive: #6B7A2B;
+  --color-olive-fg: #F5FAD8;
+
+  --color-tag-work: #E74C3C;
+  --color-tag-work-fg: #FFFFFF;
+  --color-tag-reading: #F39C12;
+  --color-tag-reading-fg: #2A1808;
+  --color-tag-inspiration: #27AE60;
+  --color-tag-inspiration-fg: #FFFFFF;
+  --color-tag-tools: #3498DB;
+  --color-tag-tools-fg: #FFFFFF;
+  --color-tag-personal: #9B59B6;
+  --color-tag-personal-fg: #FFFFFF;
+  --color-tag-writing: #E91E63;
+  --color-tag-writing-fg: #FFFFFF;
+  --color-tag-study: #F1C40F;
+  --color-tag-study-fg: #2A1808;
+  --color-tag-archive: #34495E;
+  --color-tag-archive-fg: #FFFFFF;
+  --color-tag-uncategorized: #F4EBD3;
+  --color-tag-uncategorized-fg: #6E5D48;
+
+  --font-serif: var(--font-sans);
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei',
+    'PingFang SC', 'Noto Sans CJK SC', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --radius-card: 10px;
+  --radius-tag: 4px;
+  --radius-pill: 999px;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+  letter-spacing: 0;
+}
+
+.rich-text-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-faint);
+  pointer-events: none;
+}
+
+.rich-text-editor p {
+  margin: 0 0 0.75rem;
+  color: var(--color-soft-ink);
+  white-space: pre-wrap;
+}
+
+.rich-text-editor h1,
+.rich-text-editor h2,
+.rich-text-editor h3 {
+  margin: 0 0 0.75rem;
+  color: var(--color-ink);
+  font-family: var(--font-serif);
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.rich-text-editor h1 {
+  font-size: 22px;
+}
+
+.rich-text-editor h2 {
+  font-size: 19px;
+}
+
+.rich-text-editor h3 {
+  font-size: 16px;
+}
+
+.rich-text-editor ul,
+.rich-text-editor ol {
+  margin: 0 0 0.75rem 1.25rem;
+  padding: 0;
+  color: var(--color-soft-ink);
+}
+
+.rich-text-editor li {
+  margin: 0.15rem 0;
+}
+
+.rich-text-editor figure {
+  margin: 0 0 0.75rem;
+}
+
+.rich-text-editor img {
+  display: block;
+  max-width: 100%;
+  max-height: 420px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.rich-text-editor mark {
+  border-radius: 2px;
+  background: #FFE28A;
+  padding: 0 2px;
+  color: var(--color-ink);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-hairline);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-faint);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-hairline) transparent;
+}
