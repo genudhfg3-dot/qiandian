@@ -139,7 +139,7 @@ export function AboutView() {
             </div>
             <div className="grid grid-cols-[80px_1fr] gap-2 text-[13px]">
               <span className="text-faint">建议反馈</span>
-              <a href="https://github.com" className="text-teal-deep hover:underline">GitHub Issues</a>
+              <a href="https://github.com/genudhfg3-dot/qiandian/issues" className="text-teal-deep hover:underline">GitHub Issues</a>
             </div>
           </section>
 
