@@ -65,4 +65,4 @@ API Key 通过 Electron safeStorage（Windows DPAPI）加密，绑定当前用�
 
 ## 许可证
 
-[MIT](LICENSE)
+[GPL-3.0](LICENSE)
