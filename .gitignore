@@ -36,3 +36,11 @@ Backup/
 # OS
 .DS_Store
 Thumbs.db
+
+# Private local data and design work
+*.sqlite
+*.sqlite-*
+Local State
+assistant-settings.json
+desktop.ini
+docs/design/

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, ExternalLink, Pencil, RefreshCw, Save, Search, Trash2, X } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EditorToolbar } from '../components/EditorToolbar'
@@ -82,40 +82,46 @@ export function EntryDetailPanel({ id, embedded = false }: EntryDetailPanelProps
   const [draftTagNames, setDraftTagNames] = useState<string[]>([])
   const [draftSource, setDraftSource] = useState<SourceInfo>({ app: '手动来源' })
   const editorRef = useRef<RichTextEditorHandle | null>(null)
-  const isEditingRef = useRef(isEditing)
 
+  // 切换条目时必须退出编辑模式并重置 draft，否则会沿用上一条的 draft 造成"内容/标题无法编辑"假象。
+  // 使用 cancelled 标志避免快速切换时旧请求的结果覆盖新请求的结果。
   useEffect(() => {
-    isEditingRef.current = isEditing
-  }, [isEditing])
-
-  const loadEntry = async () => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const nextEntry = await ipcKnowledgeRepository.getEntry(id ?? '')
-      setEntry(nextEntry)
-      if (nextEntry && !isEditingRef.current) {
-        setDraftTitle(nextEntry.title)
-        setDraftContent(nextEntry.contentMd)
-        setDraftTagNames(selectedNames(nextEntry))
-        setDraftSource(nextEntry.source)
-      }
-      try {
-        const tagList = await ipcKnowledgeRepository.listTags()
-        setAvailableTags(tagList.categories.flatMap((category) => category.tags))
-      } catch {
-        setAvailableTags([])
-      }
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : '知识读取失败')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
+    let cancelled = false
     window.scrollTo(0, 0)
-    void loadEntry()
+    setIsEditing(false)
+    setError(null)
+    setNotice(null)
+    setIsLoading(true)
+
+    const load = async () => {
+      try {
+        const nextEntry = await ipcKnowledgeRepository.getEntry(id ?? '')
+        if (cancelled) return
+        setEntry(nextEntry)
+        if (nextEntry) {
+          setDraftTitle(nextEntry.title)
+          setDraftContent(nextEntry.contentMd)
+          setDraftTagNames(selectedNames(nextEntry))
+          setDraftSource(nextEntry.source)
+        }
+        try {
+          const tagList = await ipcKnowledgeRepository.listTags()
+          if (cancelled) return
+          setAvailableTags(tagList.categories.flatMap((category) => category.tags))
+        } catch {
+          if (!cancelled) setAvailableTags([])
+        }
+      } catch (reason) {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : '知识读取失败')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
   }, [id])
 
   useEffect(() => {

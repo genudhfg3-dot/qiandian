@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AssistantSettings } from '../components/AssistantSettings'
 import type { AiSettings, AiSettingsUpdateInput } from '../domain/knowledge'
 
 const emptySettings: AiSettings = {
@@ -151,6 +152,7 @@ export function SettingsView() {
               </button>
             </div>
           </div>
+          <AssistantSettings />
         </main>
       </div>
     </div>

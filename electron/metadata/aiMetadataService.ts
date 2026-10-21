@@ -1,6 +1,7 @@
 ﻿import type { AiMetadataResult, Entry, SourceInfo } from '../../src/domain/knowledge'
 import { generateEntrySummary, generateEntryTitle } from '../../src/utils/title'
 import type { AiRuntimeSettings } from './aiSettings'
+import { normalizeModelName } from './modelName'
 
 export interface MetadataGenerationInput {
   contentMd: string
@@ -162,7 +163,7 @@ export async function generateAiMetadata(
         authorization: `Bearer ${settings.apiKey}`,
       },
       body: JSON.stringify({
-        model: settings.model,
+        model: normalizeModelName(settings.baseUrl, settings.model),
         temperature: 0.2,
         max_tokens: responseMaxTokens,
         messages: [

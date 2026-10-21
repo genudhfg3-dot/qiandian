@@ -67,14 +67,15 @@ export interface CaptureApi {
   discardImages(imagePaths: string[]): Promise<void>
   openWindow(): Promise<void>
   showFloatingButton(): Promise<void>
-  floatingDragStart(): Promise<void>
-  floatingDragEnd(): Promise<{ moved: boolean }>
+  floatingDragStart(point?: { x: number; y: number }): Promise<void>
+  floatingDragEnd(cancelled?: boolean): Promise<{ moved: boolean }>
   closeCurrentWindow(): Promise<void>
   onCloseRequest(callback: () => void): () => void
 }
 
 declare global {
   interface Window {
+    assistantApi?: import('./domain/assistant').AssistantApi
     knowledgeApi?: KnowledgeApi
     captureApi?: CaptureApi
     settingsApi?: SettingsApi

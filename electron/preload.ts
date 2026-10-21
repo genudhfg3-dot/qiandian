@@ -1,5 +1,6 @@
 ﻿import { contextBridge, ipcRenderer } from 'electron'
 import type { CaptureApi, KnowledgeApi, SettingsApi } from '../src/electron-api'
+import type { AssistantApi } from '../src/domain/assistant'
 
 const knowledgeApi: KnowledgeApi = {
   listEntries(query) {
@@ -82,11 +83,11 @@ const captureApi: CaptureApi = {
   showFloatingButton() {
     return ipcRenderer.invoke('capture:showFloatingButton')
   },
-  floatingDragStart() {
-    return ipcRenderer.invoke('capture:floatingDragStart')
+  floatingDragStart(point) {
+    return ipcRenderer.invoke('capture:floatingDragStart', point)
   },
-  floatingDragEnd() {
-    return ipcRenderer.invoke('capture:floatingDragEnd')
+  floatingDragEnd(cancelled) {
+    return ipcRenderer.invoke('capture:floatingDragEnd', cancelled)
   },
   closeCurrentWindow() {
     return ipcRenderer.invoke('capture:closeCurrentWindow')
@@ -101,4 +102,37 @@ const captureApi: CaptureApi = {
 contextBridge.exposeInMainWorld('knowledgeApi', knowledgeApi)
 contextBridge.exposeInMainWorld('captureApi', captureApi)
 contextBridge.exposeInMainWorld('settingsApi', settingsApi)
+
+const assistantApi: AssistantApi = {
+  open: (text, action) => ipcRenderer.invoke('assistant:open', text, action),
+  menu: () => ipcRenderer.invoke('assistant:menu'),
+  state: () => ipcRenderer.invoke('assistant:state'),
+  send: text => ipcRenderer.invoke('assistant:send', text),
+  draft: text => ipcRenderer.invoke('assistant:draft', text),
+  cancel: () => ipcRenderer.invoke('assistant:cancel'),
+  retry: () => ipcRenderer.invoke('assistant:retry'),
+  reset: () => ipcRenderer.invoke('assistant:reset'),
+  clipboard: () => ipcRenderer.invoke('assistant:clipboard'),
+  image: dataUrl => ipcRenderer.invoke('assistant:image', dataUrl),
+  removeImage: id => ipcRenderer.invoke('assistant:removeImage', id),
+  acceptIncoming: mode => ipcRenderer.invoke('assistant:acceptIncoming', mode),
+  hide: () => ipcRenderer.invoke('assistant:hide'),
+  pin: () => ipcRenderer.invoke('assistant:pin'),
+  settings: () => ipcRenderer.invoke('assistant:settings'),
+  preferences: () => ipcRenderer.invoke('assistant:preferences'),
+  updatePreferences: input => ipcRenderer.invoke('assistant:updatePreferences', input),
+  hint: action => ipcRenderer.invoke('assistant:hint', action),
+  save: input => ipcRenderer.invoke('assistant:save', input),
+  onDelta(callback) {
+    const listener = (_event: Electron.IpcRendererEvent, delta: { id: string; text: string; firstTokenMs?: number }) => callback(delta)
+    ipcRenderer.on('assistant:delta', listener)
+    return () => ipcRenderer.removeListener('assistant:delta', listener)
+  },
+  onState(callback) {
+    const listener = (_event: Electron.IpcRendererEvent, state: import('../src/domain/assistant').AssistantState) => callback(state)
+    ipcRenderer.on('assistant:state', listener)
+    return () => ipcRenderer.removeListener('assistant:state', listener)
+  },
+}
+contextBridge.exposeInMainWorld('assistantApi', assistantApi)
 

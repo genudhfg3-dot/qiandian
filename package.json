@@ -1,7 +1,7 @@
 {
   "name": "personal-knowledge-base",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.2.1",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
@@ -13,12 +13,17 @@
     "verify:repository": "node scripts/verifyKnowledgeRepository.mjs",
     "verify:sqlite": "node scripts/runElectronNode.mjs scripts/verifySqliteRepository.mjs",
     "verify:clipboard": "node scripts/verifyClipboardMarkdown.mjs",
+    "verify:assistant": "node scripts/verifyAssistant.mjs",
+    "verify:assistant-desktop": "node scripts/verifyAssistantDesktop.mjs",
+    "benchmark:assistant": "node scripts/benchmarkAssistant.mjs",
     "package:win": "node scripts/packageWin.mjs",
     "verify:package": "node scripts/verifyPackagingConfig.mjs && npm run verify:first-start",
     "clean:release": "node scripts/cleanRelease.mjs",
     "verify:first-start": "node scripts/runElectronNode.mjs scripts/verifyFirstStartup.mjs",
     "verify:release": "node scripts/verifyReleaseStructure.mjs",
-    "verify:ai": "node scripts/runElectronNode.mjs scripts/verifyAiMetadata.mjs"
+    "verify:ai": "node scripts/runElectronNode.mjs scripts/verifyAiMetadata.mjs",
+    "verify:title": "node scripts/runElectronNode.mjs scripts/verifyTitleProtection.mjs",
+    "verify:tables": "node scripts/verifyTableSupport.mjs"
   },
   "dependencies": {
     "active-win": "^8.2.1",

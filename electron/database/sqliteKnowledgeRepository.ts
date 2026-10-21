@@ -27,6 +27,7 @@ import { generateEntrySummary, generateEntryTitle } from '../../src/utils/title'
 interface EntryRow {
   id: number
   title: string | null
+  title_is_auto: number
   content_md: string
   source_app: string | null
   source_title: string | null
@@ -201,6 +202,7 @@ function mapEntryRow(db: Database, row: EntryRow): Entry {
   return {
     id: String(row.id),
     title: row.title ?? '',
+    titleIsAuto: Boolean(row.title_is_auto),
     contentMd: row.content_md,
     excerpt: row.summary?.trim() || excerptFrom(row.content_md),
     summary: row.summary ?? undefined,
@@ -222,7 +224,7 @@ function loadEntryById(db: Database, entryId: number) {
   const row = db
     .prepare(
       `
-        SELECT id, title, content_md, source_app, source_title, source_url, summary, metadata_status, metadata_updated_at, created_at, updated_at
+        SELECT id, title, title_is_auto, content_md, source_app, source_title, source_url, summary, metadata_status, metadata_updated_at, created_at, updated_at
         FROM entries
         WHERE id = ?
       `,
@@ -507,7 +509,7 @@ export function createSqliteKnowledgeRepository(db: Database): KnowledgeReposito
       const rows = db
         .prepare(
           `
-            SELECT e.id, e.title, e.content_md, e.source_app, e.source_title, e.source_url, e.summary, e.metadata_status, e.metadata_updated_at, e.created_at, e.updated_at
+            SELECT e.id, e.title, e.title_is_auto, e.content_md, e.source_app, e.source_title, e.source_url, e.summary, e.metadata_status, e.metadata_updated_at, e.created_at, e.updated_at
             FROM entries e
             ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
             ORDER BY e.created_at ${sort === 'created_asc' ? 'ASC' : 'DESC'}
@@ -521,6 +523,7 @@ export function createSqliteKnowledgeRepository(db: Database): KnowledgeReposito
       const entries: Entry[] = rows.map((row) => ({
         id: String(row.id),
         title: row.title ?? '',
+        titleIsAuto: Boolean(row.title_is_auto),
         contentMd: row.content_md,
         excerpt: row.summary?.trim() || excerptFrom(row.content_md),
         summary: row.summary ?? undefined,
@@ -554,19 +557,22 @@ export function createSqliteKnowledgeRepository(db: Database): KnowledgeReposito
         title: input.source?.title?.trim() || undefined,
         url: input.source?.url?.trim() || undefined,
       }
-      const title = input.title?.trim() || generateEntryTitle(contentMd, source)
+      const requestedTitle = input.title?.trim()
+      const titleIsAuto = !requestedTitle
+      const title = requestedTitle || generateEntryTitle(contentMd, source)
       const now = Date.now()
       const tagNames = uniqueTagNames(input.tagNames)
       const create = db.transaction(() => {
         const entryInfo = db
           .prepare(
             `
-              INSERT INTO entries (title, content_md, source_app, source_title, source_url, summary, metadata_status, metadata_updated_at, created_at, updated_at)
-              VALUES (@title, @contentMd, @sourceApp, @sourceTitle, @sourceUrl, @summary, @metadataStatus, @metadataUpdatedAt, @createdAt, @updatedAt)
+              INSERT INTO entries (title, title_is_auto, content_md, source_app, source_title, source_url, summary, metadata_status, metadata_updated_at, created_at, updated_at)
+              VALUES (@title, @titleIsAuto, @contentMd, @sourceApp, @sourceTitle, @sourceUrl, @summary, @metadataStatus, @metadataUpdatedAt, @createdAt, @updatedAt)
             `,
           )
           .run({
             title,
+            titleIsAuto: titleIsAuto ? 1 : 0,
             contentMd,
             sourceApp: source.app,
             sourceTitle: source.title ?? null,
@@ -631,7 +637,22 @@ export function createSqliteKnowledgeRepository(db: Database): KnowledgeReposito
         title: input.source?.title?.trim() || undefined,
         url: input.source?.url?.trim() || undefined,
       }
-      const title = input.title?.trim() || generateEntryTitle(contentMd, source)
+      const requestedTitle = input.title?.trim()
+      let title: string
+      let titleIsAuto: boolean
+      if (!requestedTitle) {
+        // 标题被清空 -> 视为交还给自动生成，之后 AI 仍可替换
+        title = generateEntryTitle(contentMd, source)
+        titleIsAuto = true
+      } else if (requestedTitle === existing.title) {
+        // 标题文本未变 -> 保持原有的手动/自动标记，不因重新提交表单而改变归属
+        title = existing.title
+        titleIsAuto = Boolean(existing.titleIsAuto)
+      } else {
+        // 用户主动改了标题文本 -> 标记为手动，之后 AI 不再覆盖
+        title = requestedTitle
+        titleIsAuto = false
+      }
       const now = Date.now()
       const tagNames = uniqueTagNames(input.tagNames)
       const images = input.images ?? []
@@ -646,6 +667,7 @@ export function createSqliteKnowledgeRepository(db: Database): KnowledgeReposito
             `
               UPDATE entries
               SET title = @title,
+                  title_is_auto = @titleIsAuto,
                   content_md = @contentMd,
                   source_app = @sourceApp,
                   source_title = @sourceTitle,
@@ -660,6 +682,7 @@ export function createSqliteKnowledgeRepository(db: Database): KnowledgeReposito
           .run({
             entryId,
             title,
+            titleIsAuto: titleIsAuto ? 1 : 0,
             contentMd,
             sourceApp: source.app,
             sourceTitle: source.title ?? null,
@@ -716,7 +739,9 @@ export function createSqliteKnowledgeRepository(db: Database): KnowledgeReposito
           rewriteEntryRelations(db, entryId, nextTags, existing.images, now)
         }
 
-        const title = input.title?.trim() || existing.title
+        // 仓库层兜底：只有仍处于"自动生成"状态的标题才允许被 AI 结果替换，
+        // 无论调用方（main.ts 等）是否正确做过判断，手动标题在这里也不会被覆盖。
+        const title = existing.titleIsAuto && input.title?.trim() ? input.title.trim() : existing.title
         db.prepare(
           `
             UPDATE entries

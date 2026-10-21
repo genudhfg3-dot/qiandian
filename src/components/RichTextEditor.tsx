@@ -1,6 +1,7 @@
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef } from 'react'
 import type { ClipboardEvent, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { rewriteMarkdownImageUrls } from '../utils/imageUrls'
+import { buildTableMarkdown, tryParseTableBlock } from '../utils/markdownTable'
 
 const inlineFormatPattern = /\*\*([^*]+)\*\*|<mark>(.*?)<\/mark>|<span style="color:\s*(#[0-9a-fA-F]{6})">(.*?)<\/span>|<span style="font-size:\s*(\d+)px">(.*?)<\/span>/g
 const blockElementNames = new Set(['ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DIV', 'FIGURE', 'FOOTER', 'HEADER', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'MAIN', 'NAV', 'OL', 'P', 'PRE', 'SECTION', 'TABLE', 'UL'])
@@ -85,6 +86,10 @@ function renderInlineMarkdown(text: string) {
   return html.join('')
 }
 
+function tableRowToEditorHtml(cells: string[], cellTag: 'th' | 'td') {
+  return `<tr>${cells.map((cell) => `<${cellTag}>${renderInlineMarkdown(cell)}</${cellTag}>`).join('')}</tr>`
+}
+
 function markdownToEditorHtml(markdown: string) {
   if (!markdown.trim()) {
     return ''
@@ -92,39 +97,68 @@ function markdownToEditorHtml(markdown: string) {
 
   const lines = rewriteMarkdownImageUrls(markdown).split('\n')
   const originalLines = markdown.split('\n')
+  const html: string[] = []
+  let index = 0
 
-  return lines
-    .map((line, index) => {
-      const originalLine = originalLines[index] ?? line
-      const trimmed = line.trim()
-      if (!trimmed) {
-        return '<p><br></p>'
-      }
+  while (index < lines.length) {
+    const table = tryParseTableBlock(lines, index)
+    if (table) {
+      const headHtml = tableRowToEditorHtml(table.headerCells, 'th')
+      const bodyHtml = table.bodyRows.map((row) => tableRowToEditorHtml(row, 'td')).join('')
+      html.push(`<table><thead>${headHtml}</thead><tbody>${bodyHtml}</tbody></table>`)
+      index += table.consumedLineCount
+      continue
+    }
 
-      const originalImage = originalLine.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/)
-      const image = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/)
-      if (image) {
-        const src = image[2]
-        const sourcePath = originalImage?.[2] ?? src
-        return `<figure><img src="${escapeHtml(src)}" alt="${escapeHtml(image[1])}" data-md-src="${escapeHtml(sourcePath)}"></figure>`
-      }
+    const line = lines[index]
+    const originalLine = originalLines[index] ?? line
+    const trimmed = line.trim()
+    if (!trimmed) {
+      html.push('<p><br></p>')
+      index += 1
+      continue
+    }
 
-      const heading = trimmed.match(/^(#{1,3})\s+(.+)$/)
-      if (heading) {
-        return `<h${heading[1].length}>${renderInlineMarkdown(heading[2])}</h${heading[1].length}>`
-      }
+    const originalImage = originalLine.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/)
+    const image = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/)
+    if (image) {
+      const src = image[2]
+      const sourcePath = originalImage?.[2] ?? src
+      html.push(`<figure><img src="${escapeHtml(src)}" alt="${escapeHtml(image[1])}" data-md-src="${escapeHtml(sourcePath)}"></figure>`)
+      index += 1
+      continue
+    }
 
-      if (trimmed.startsWith('- ')) {
-        return `<ul><li>${renderInlineMarkdown(trimmed.slice(2))}</li></ul>`
-      }
+    const heading = trimmed.match(/^(#{1,3})\s+(.+)$/)
+    if (heading) {
+      html.push(`<h${heading[1].length}>${renderInlineMarkdown(heading[2])}</h${heading[1].length}>`)
+      index += 1
+      continue
+    }
 
-      return `<p>${renderInlineMarkdown(line)}</p>`
-    })
-    .join('')
+    if (trimmed.startsWith('- ')) {
+      html.push(`<ul><li>${renderInlineMarkdown(trimmed.slice(2))}</li></ul>`)
+      index += 1
+      continue
+    }
+
+    html.push(`<p>${renderInlineMarkdown(line)}</p>`)
+    index += 1
+  }
+
+  return html.join('')
 }
 
 function hasImageClipboardItem(event: ClipboardEvent<HTMLDivElement>) {
   const types = Array.from(event.clipboardData.types)
+
+  // Excel/WPS/Word 复制表格或富文本时，剪贴板里经常会额外附带一张位图截图，
+  // 仅供不认识 HTML 的程序兜底显示。这种情况下应该优先按 HTML 解析（能保留表格结构），
+  // 否则表格会被误判成"贴图片"，整段内容变成一张截图而丢失表格结构。
+  if (types.includes('text/html') && event.clipboardData.getData('text/html').trim()) {
+    return false
+  }
+
   const items = Array.from(event.clipboardData.items)
   const files = Array.from(event.clipboardData.files)
   return (
@@ -169,6 +203,11 @@ function inlineNodeToMarkdown(node: Node): string {
     }
   }
 
+  if (name === 'IMG') {
+    const source = (node as HTMLImageElement).dataset.mdSrc || node.getAttribute('src') || ''
+    return source ? `![${node.getAttribute('alt') ?? ''}](${source})` : ''
+  }
+
   if (name === 'BR') {
     return '\n'
   }
@@ -197,8 +236,7 @@ function blockNodeToMarkdown(node: Node): string[] {
   }
 
   if (name === 'FIGURE') {
-    const image = node.querySelector('img')
-    return image ? blockNodeToMarkdown(image) : []
+    return Array.from(node.childNodes).flatMap((child) => blockNodeToMarkdown(child))
   }
 
   if (/^H[1-6]$/.test(name)) {
@@ -214,6 +252,17 @@ function blockNodeToMarkdown(node: Node): string[] {
   if (name === 'LI') {
     const text = Array.from(node.childNodes).map(inlineNodeToMarkdown).join('').trim()
     return text ? [`- ${text}`] : []
+  }
+
+  if (name === 'TABLE') {
+    const rows = Array.from(node.querySelectorAll('tr'))
+      .map((row) =>
+        Array.from(row.querySelectorAll(':scope > th, :scope > td')).map((cell) =>
+          Array.from(cell.childNodes).map(inlineNodeToMarkdown).join('').replace(/\s+/g, ' ').trim(),
+        ),
+      )
+      .filter((cells) => cells.length > 0)
+    return rows.length > 0 ? [buildTableMarkdown(rows)] : []
   }
 
   const hasBlockChildren = Array.from(node.children).some((child) => blockElementNames.has(child.tagName))

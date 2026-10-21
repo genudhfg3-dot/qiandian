@@ -1,7 +1,9 @@
-﻿import { Link, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { Tag } from '../../components/Tag'
 import type { SourceFacet, TagCategoryFacet } from '../../domain/knowledge'
 import { SourceBadge } from './SourceBadge'
+import { TYPOGRAPHY_THEME_OPTIONS, readTypographyTheme, writeTypographyTheme, type TypographyTheme } from '../../utils/typographyTheme'
 
 interface FilterSidebarProps {
   categories: TagCategoryFacet[]
@@ -21,6 +23,12 @@ export function FilterSidebar({
   onToggleSource,
 }: FilterSidebarProps) {
   const { pathname } = useLocation()
+  const [typographyTheme, setTypographyTheme] = useState<TypographyTheme>(readTypographyTheme())
+
+  const handleThemeChange = (theme: TypographyTheme) => {
+    writeTypographyTheme(theme)
+    setTypographyTheme(theme)
+  }
   const navItems = [
     { to: '/', label: '知识库', active: pathname === '/' || pathname.startsWith('/entries/') },
     { to: '/tags', label: '标签管理', active: pathname === '/tags' },
@@ -63,6 +71,29 @@ export function FilterSidebar({
             </button>
           )
         })}
+      </div>
+
+      <div className="mt-5 border-t border-hairline pt-3">
+        <div className="mb-2 px-1">
+          <span className="text-[11px] text-faint">正文外观</span>
+        </div>
+        <div className="flex gap-1 px-1">
+          {TYPOGRAPHY_THEME_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => handleThemeChange(option.value)}
+              className={`flex-1 rounded-[4px] px-1 py-1 text-center text-[11px] transition-colors ${
+                typographyTheme === option.value
+                  ? 'bg-ink font-medium text-cream'
+                  : 'text-soft-ink hover:bg-cream-soft hover:text-ink'
+              }`}
+              title={option.description}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="mt-5 grid gap-1 border-t border-hairline pt-3">

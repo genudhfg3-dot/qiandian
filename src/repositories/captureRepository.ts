@@ -12,8 +12,8 @@ export interface CaptureRepository {
   discardImages(images: CapturedClipboardImage[]): Promise<void>
   openWindow(): Promise<void>
   showFloatingButton(): Promise<void>
-  floatingDragStart(): Promise<void>
-  floatingDragEnd(): Promise<{ moved: boolean }>
+  floatingDragStart(point?: { x: number; y: number }): Promise<void>
+  floatingDragEnd(cancelled?: boolean): Promise<{ moved: boolean }>
   closeCurrentWindow(): Promise<void>
   onCloseRequest(callback: () => void): () => void
 }
@@ -66,20 +66,20 @@ export const captureRepository: CaptureRepository = {
     await window.captureApi.showFloatingButton()
   },
 
-  async floatingDragStart(): Promise<void> {
+  async floatingDragStart(point): Promise<void> {
     if (typeof window === 'undefined' || !window.captureApi) {
       return
     }
 
-    await window.captureApi.floatingDragStart()
+    await window.captureApi.floatingDragStart(point)
   },
 
-  async floatingDragEnd(): Promise<{ moved: boolean }> {
+  async floatingDragEnd(cancelled): Promise<{ moved: boolean }> {
     if (typeof window === 'undefined' || !window.captureApi) {
       return { moved: false }
     }
 
-    return window.captureApi.floatingDragEnd()
+    return window.captureApi.floatingDragEnd(cancelled)
   },
 
   async closeCurrentWindow(): Promise<void> {

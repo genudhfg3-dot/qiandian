@@ -33,6 +33,7 @@ export function KnowledgeBaseView() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [sort, setSort] = useState<EntrySortOrder>('created_desc')
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const [selectedSourceApps, setSelectedSourceApps] = useState<string[]>([])
@@ -49,6 +50,11 @@ export function KnowledgeBaseView() {
     }
     window.localStorage.setItem(LIST_WIDTH_STORAGE_KEY, String(listWidth))
   }, [listWidth])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query), 250)
+    return () => window.clearTimeout(timer)
+  }, [query])
 
   const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
@@ -111,7 +117,7 @@ export function KnowledgeBaseView() {
 
     ipcKnowledgeRepository
       .listEntries({
-        q: query,
+        q: debouncedQuery,
         sort,
         tagIds: selectedTagIds,
         sourceApps: selectedSourceApps,
@@ -135,7 +141,7 @@ export function KnowledgeBaseView() {
     return () => {
       cancelled = true
     }
-  }, [query, refreshKey, selectedSourceApps, selectedTagIds, sort])
+  }, [debouncedQuery, refreshKey, selectedSourceApps, selectedTagIds, sort])
 
   const facets = result?.facets ?? { categories: [], sources: [] }
   const entries = result?.entries ?? []
@@ -184,6 +190,11 @@ export function KnowledgeBaseView() {
 
   const hasFilters = query.trim() || selectedTags.length > 0 || selectedSourceApps.length > 0
 
+  const clearQuery = () => {
+    setQuery('')
+    setDebouncedQuery('')
+  }
+
   return (
     <div className="flex h-full flex-col bg-cream px-3 pb-3">
       <div className="mx-auto flex h-full w-full flex-col overflow-hidden rounded-[10px] border border-hairline bg-surface">
@@ -220,7 +231,7 @@ export function KnowledgeBaseView() {
                   </button>
                 ))}
                 {query.trim() ? (
-                  <button type="button" onClick={() => setQuery('')} className="shrink-0 rounded-[4px] bg-cream-soft px-2.5 py-[2px] text-[12px] font-medium text-soft-ink hover:text-ink">
+                  <button type="button" onClick={clearQuery} className="shrink-0 rounded-[4px] bg-cream-soft px-2.5 py-[2px] text-[12px] font-medium text-soft-ink hover:text-ink">
                     搜索: {query} ×
                   </button>
                 ) : null}

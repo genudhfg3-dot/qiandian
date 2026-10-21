@@ -53,11 +53,12 @@ try {
   db = openKnowledgeDatabase(dbPath)
   openKnowledgeDatabase(dbPath).close()
 
-  assert.ok(db.prepare('SELECT version FROM schema_migrations WHERE version = 2').get(), 'migration version 2 should be recorded')
+  assert.ok(db.prepare('SELECT version FROM schema_migrations WHERE version = 3').get(), 'migration version 3 should be recorded')
   const columns = db.prepare('PRAGMA table_info(entries)').all().map((column) => column.name)
   assert.ok(columns.includes('summary'), 'entries.summary should exist')
   assert.ok(columns.includes('metadata_status'), 'entries.metadata_status should exist')
   assert.ok(columns.includes('metadata_updated_at'), 'entries.metadata_updated_at should exist')
+  assert.ok(columns.includes('title_is_auto'), 'entries.title_is_auto should exist')
 
   const defaults = readAiSettings(db)
   assert.equal(defaults.enabled, false, 'AI should default to disabled')

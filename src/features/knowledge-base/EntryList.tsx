@@ -14,6 +14,19 @@ interface EntryListProps {
 
 const relativeFormatter = new Intl.RelativeTimeFormat('zh-CN', { numeric: 'auto' })
 
+// 列表卡片只展示前 3 行，摘要缺失时没必要把整篇长文都拿去做 markdown 处理，
+// 截取一段足够覆盖预览行数的前缀即可，避免大文档拖慢列表渲染。
+const PREVIEW_SOURCE_CHAR_LIMIT = 800
+
+function previewSource(entry: Entry) {
+  if (entry.summary) {
+    return entry.summary
+  }
+  return entry.contentMd.length > PREVIEW_SOURCE_CHAR_LIMIT
+    ? entry.contentMd.slice(0, PREVIEW_SOURCE_CHAR_LIMIT)
+    : entry.contentMd
+}
+
 function metadataStatusLabel(status: Entry['metadataStatus']) {
   switch (status) {
     case 'pending':
@@ -88,7 +101,7 @@ function EntryRow({ entry, isLast, isActive }: { entry: Entry; isLast: boolean; 
           ) : null}
           <div className="min-w-0 flex-1">
             <div className="mb-2 max-h-[68px] overflow-hidden">
-              <RichMarkdownPreview markdown={entry.summary || entry.contentMd} compact maxLines={3} />
+              <RichMarkdownPreview markdown={previewSource(entry)} compact maxLines={3} />
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {entry.tags.map((tag) => <Tag key={tag.id} label={tag.name} category={tag.color} />)}

@@ -35,6 +35,7 @@ export type MetadataStatus = 'local' | 'pending' | 'ready' | 'failed' | 'disable
 export interface Entry {
   id: string
   title: string
+  titleIsAuto?: boolean
   contentMd: string
   excerpt: string
   summary?: string

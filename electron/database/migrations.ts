@@ -1,6 +1,6 @@
 ﻿import type { Database } from 'better-sqlite3'
 
-const MIGRATION_VERSION = 2
+const MIGRATION_VERSION = 3
 
 function hasColumn(db: Database, table: string, column: string) {
   const rows = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
@@ -95,6 +95,8 @@ export function runMigrations(db: Database) {
   addColumnIfMissing(db, 'entries', 'summary', 'TEXT')
   addColumnIfMissing(db, 'entries', 'metadata_status', "TEXT DEFAULT 'local'")
   addColumnIfMissing(db, 'entries', 'metadata_updated_at', 'INTEGER')
+  // 老数据一律视为"手动标题"（0），避免升级后 AI 悄悄改动用户已经确认过的标题
+  addColumnIfMissing(db, 'entries', 'title_is_auto', 'INTEGER NOT NULL DEFAULT 0')
 
   db.exec(`
     INSERT OR IGNORE INTO schema_migrations (version, applied_at)

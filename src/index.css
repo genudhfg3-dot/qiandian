@@ -1,5 +1,32 @@
 @import "tailwindcss";
 
+.floating-entry-stage { width: 100%; height: 100%; display: grid; place-items: center; }
+.floating-entry { position: relative; width: 64px; height: 64px; }
+.floating-entry button { position: absolute; padding: 0; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; display: grid; place-items: center; border-radius: 50%; }
+.floating-entry button:active { cursor: grabbing; }
+.floating-entry button:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+.floating-entry button svg { pointer-events: none; }
+.floating-entry-heart { left: 8px; top: 8px; width: 48px; height: 48px; border: 0; background: var(--color-terracotta); color: var(--color-terracotta-fg); box-shadow: 0 2px 5px rgb(73 37 20 / 18%); }
+.floating-entry-heart:hover { background: #bd4828; }
+.floating-entry-ai { right: 1px; top: 1px; width: 24px; height: 24px; border: 1px solid #dfc6a9; background: var(--color-surface); color: var(--color-terracotta); box-shadow: 0 1px 3px rgb(73 37 20 / 12%); }
+.floating-entry-ai:hover { background: #f7e5d2; border-color: var(--color-terracotta); }
+
+.assistant-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 6px; color: var(--color-soft-ink);
+}
+.assistant-icon:hover, .assistant-chip:hover { background: var(--color-cream-soft); }
+.assistant-chip {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid var(--color-hairline); border-radius: 6px;
+  padding: 5px 9px; font-size: 12px; color: var(--color-soft-ink);
+}
+.assistant-field { border: 1px solid var(--color-hairline); border-radius: 6px; background: var(--color-cream); padding: 8px 10px; font-size: 13px; outline: none; }
+.assistant-field:focus { border-color: var(--color-terracotta); }
+.assistant-shell button:disabled, .assistant-chip:disabled, .assistant-icon:disabled { opacity: .45; cursor: not-allowed; }
+.assistant-shell button:focus-visible, .assistant-chip:focus-visible { outline: 2px solid var(--color-terracotta); outline-offset: 2px; }
+.assistant-shell .rich-preview { font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
+
 @theme {
   --color-cream: #F8F0DE;
   --color-cream-soft: #F4EBD3;
@@ -133,6 +160,28 @@ body {
   color: var(--color-ink);
 }
 
+.rich-text-editor table {
+  margin: 0 0 0.75rem;
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+
+.rich-text-editor th,
+.rich-text-editor td {
+  border: 1px solid var(--color-hairline);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+  color: var(--color-soft-ink);
+}
+
+.rich-text-editor th {
+  background: var(--color-cream-soft);
+  color: var(--color-ink);
+  font-weight: 500;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -158,4 +207,127 @@ body {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-hairline) transparent;
+}
+
+/* ============ 正文外观方案切换 ============ */
+/* 通过 <html data-typography="d|e|f"> 属性驱动，三套样式见末尾。
+   紧凑模式（列表卡片预览）不响应方案，保持统一的灰色紧凑样式。 */
+
+/* 编辑器标题响应方案 E（D/F 保持默认 ink） */
+[data-typography="e"] .rich-text-editor h2 {
+  color: var(--color-teal-deep);
+  font-weight: 600;
+}
+
+[data-typography="e"] .rich-text-editor h3 {
+  color: var(--color-mustard);
+  font-weight: 600;
+}
+
+/* 预览容器基础样式 */
+.rich-preview {
+  color: var(--color-ink);
+}
+
+.rich-preview.compact {
+  color: var(--color-soft-ink);
+}
+
+.rich-preview.compact h1,
+.rich-preview.compact h2,
+.rich-preview.compact h3 {
+  color: var(--color-ink);
+  font-weight: 500;
+}
+
+/* 非 compact 模式：标题字号/行高基础（颜色和装饰线由方案控制） */
+.rich-preview:not(.compact) h1,
+.rich-preview:not(.compact) h2,
+.rich-preview:not(.compact) h3 {
+  font-family: var(--font-serif);
+  line-height: 1.3;
+}
+
+.rich-preview:not(.compact) h1 { font-size: 22px; }
+.rich-preview:not(.compact) h2 { font-size: 19px; }
+.rich-preview:not(.compact) h3 { font-size: 16px; }
+
+.rich-preview:not(.compact) .rich-list-item {
+  color: var(--color-ink);
+}
+
+.rich-preview:not(.compact) .rich-list-item::before {
+  color: var(--color-terracotta);
+}
+
+.rich-preview:not(.compact) strong {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+/* 方案 D：底线粗细分层（默认） */
+[data-typography="d"] .rich-preview:not(.compact) h1 {
+  font-weight: 700;
+  color: var(--color-ink);
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-hairline);
+}
+
+[data-typography="d"] .rich-preview:not(.compact) h2 {
+  font-weight: 600;
+  color: var(--color-ink);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-hairline-soft);
+}
+
+[data-typography="d"] .rich-preview:not(.compact) h3 {
+  font-weight: 500;
+  color: var(--color-soft-ink);
+  padding-bottom: 4px;
+  border-bottom: 1px dashed var(--color-hairline-soft);
+}
+
+/* 方案 E：色彩+重字重 */
+[data-typography="e"] .rich-preview:not(.compact) h1 {
+  font-size: 23px;
+  font-weight: 700;
+  color: var(--color-ink);
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-hairline);
+}
+
+[data-typography="e"] .rich-preview:not(.compact) h2 {
+  font-weight: 600;
+  color: var(--color-teal-deep);
+}
+
+[data-typography="e"] .rich-preview:not(.compact) h3 {
+  font-weight: 600;
+  color: var(--color-mustard);
+}
+
+[data-typography="e"] .rich-preview:not(.compact) strong {
+  font-weight: 700;
+}
+
+/* 方案 F：底部彩色锚点 */
+[data-typography="f"] .rich-preview:not(.compact) h1 {
+  font-weight: 600;
+  color: var(--color-ink);
+  padding-bottom: 8px;
+  border-bottom: 3px solid var(--color-terracotta);
+}
+
+[data-typography="f"] .rich-preview:not(.compact) h2 {
+  font-weight: 600;
+  color: var(--color-ink);
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--color-teal-deep);
+}
+
+[data-typography="f"] .rich-preview:not(.compact) h3 {
+  font-weight: 500;
+  color: var(--color-ink);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--color-mustard);
 }

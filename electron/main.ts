@@ -1,4 +1,4 @@
-﻿import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeImage, protocol, safeStorage, screen, Tray } from 'electron'
+﻿import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, protocol, safeStorage, screen, Tray } from 'electron'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type {
@@ -26,9 +26,10 @@ import {
   registerImageProtocol,
 } from './capture/imageProtocol'
 import { readAiRuntimeSettings, readAiSettings, writeAiSettings } from './metadata/aiSettings'
-import { generateEntryTitle } from '../src/utils/title'
 import { generateAiMetadata, toMetadataInput } from './metadata/aiMetadataService'
 import { MetadataQueue } from './metadata/metadataQueue'
+import { installAssistant } from './assistant/controller'
+import { DragGesture } from './capture/dragGesture'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -60,6 +61,7 @@ if (!gotSingleInstanceLock) {
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 const floatingButtonSize = 64
 const floatingButtonMargin = 12
+const floatingButtonTopmostIntervalMs = 60_000
 const captureShortcut = 'CommandOrControl+Shift+K'
 let knowledgeRepository: KnowledgeRepository | null = null
 let knowledgeDb: ReturnType<typeof openKnowledgeDatabase> | null = null
@@ -72,9 +74,9 @@ let isQuitting = false
 let lastExternalSource: SourceInfo | null = null
 let sourcePollTimer: NodeJS.Timeout | null = null
 let floatingDragTimer: NodeJS.Timeout | null = null
-let floatingDragOffset: { x: number; y: number } | null = null
-let floatingDragStartCursor: { x: number; y: number } | null = null
-const floatingDragClickThreshold = 4
+let floatingGesture: DragGesture | null = null
+let assistant: ReturnType<typeof installAssistant> | null = null
+let floatingButtonTopmostTimer: NodeJS.Timeout | null = null
 const keyStorage = safeStorage
   ? {
       isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
@@ -185,18 +187,8 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
-function intersectsWorkArea(bounds: PersistedBounds, workArea: Electron.Rectangle) {
-  return (
-    bounds.x < workArea.x + workArea.width &&
-    bounds.x + bounds.width > workArea.x &&
-    bounds.y < workArea.y + workArea.height &&
-    bounds.y + bounds.height > workArea.y
-  )
-}
-
 function clampFloatingBounds(bounds: PersistedBounds): PersistedBounds {
-  const displays = screen.getAllDisplays()
-  const matchedDisplay = displays.find((display) => intersectsWorkArea(bounds, display.workArea)) ?? screen.getPrimaryDisplay()
+  const matchedDisplay = screen.getDisplayMatching(bounds)
   const workArea = matchedDisplay.workArea
   const width = floatingButtonSize
   const height = floatingButtonSize
@@ -237,48 +229,55 @@ function correctFloatingButtonBounds() {
   writeSettings({ ...readSettings(), floatingButtonBounds: bounds })
 }
 
-function startFloatingButtonDrag() {
+function reassertFloatingButtonTopmost() {
+  if (!floatingButtonWindow || floatingButtonWindow.isDestroyed() || !floatingButtonWindow.isVisible()) {
+    return
+  }
+
+  // 长时间运行后,悬浮窗的置顶状态可能被全屏程序、锁屏/解锁等系统事件顶掉,
+  // Electron 不会自动恢复,需要主动重新断言。
+  floatingButtonWindow.setAlwaysOnTop(true)
+}
+
+function startFloatingButtonDrag(point?: { x: number; y: number }) {
   if (!floatingButtonWindow || floatingButtonWindow.isDestroyed()) {
     return
   }
 
   const cursor = screen.getCursorScreenPoint()
   const bounds = floatingButtonWindow.getBounds()
-  floatingDragOffset = { x: cursor.x - bounds.x, y: cursor.y - bounds.y }
-  floatingDragStartCursor = { x: cursor.x, y: cursor.y }
+  const offset = point && Number.isFinite(point.x) && Number.isFinite(point.y)
+    ? { x: clamp(point.x, 0, floatingButtonSize), y: clamp(point.y, 0, floatingButtonSize) }
+    : { x: cursor.x - bounds.x, y: cursor.y - bounds.y }
+  floatingGesture = new DragGesture({ x: bounds.x + offset.x, y: bounds.y + offset.y }, offset)
 
   if (floatingDragTimer) {
     clearInterval(floatingDragTimer)
   }
 
   floatingDragTimer = setInterval(() => {
-    if (!floatingButtonWindow || floatingButtonWindow.isDestroyed() || !floatingDragOffset) {
+    if (!floatingButtonWindow || floatingButtonWindow.isDestroyed() || !floatingGesture) {
       return
     }
     const next = screen.getCursorScreenPoint()
-    floatingButtonWindow.setPosition(
-      Math.round(next.x - floatingDragOffset.x),
-      Math.round(next.y - floatingDragOffset.y),
-    )
+    const position = floatingGesture.update(next)
+    if (floatingGesture.moved) floatingButtonWindow.setPosition(position.x, position.y)
   }, 16)
 }
 
-function endFloatingButtonDrag(): { moved: boolean } {
+function endFloatingButtonDrag(cancelled = false): { moved: boolean } {
   if (floatingDragTimer) {
     clearInterval(floatingDragTimer)
     floatingDragTimer = null
   }
 
-  let moved = false
-  if (floatingDragStartCursor) {
-    const cursor = screen.getCursorScreenPoint()
-    const dx = cursor.x - floatingDragStartCursor.x
-    const dy = cursor.y - floatingDragStartCursor.y
-    moved = Math.abs(dx) > floatingDragClickThreshold || Math.abs(dy) > floatingDragClickThreshold
+  const gesture = floatingGesture
+  if (gesture && !cancelled && floatingButtonWindow && !floatingButtonWindow.isDestroyed()) {
+    const position = gesture.update(screen.getCursorScreenPoint())
+    if (gesture.moved) floatingButtonWindow.setPosition(position.x, position.y)
   }
-
-  floatingDragOffset = null
-  floatingDragStartCursor = null
+  const moved = cancelled || !gesture || gesture.moved
+  floatingGesture = null
 
   if (floatingButtonWindow && !floatingButtonWindow.isDestroyed()) {
     correctFloatingButtonBounds()
@@ -318,12 +317,6 @@ function createMainWindow() {
     title: '千点',
     show: false,
     icon,
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#F8F0DE',
-      symbolColor: '#1F1812',
-      height: 32,
-    },
     webPreferences: sharedWebPreferences(),
   })
 
@@ -413,10 +406,16 @@ function createFloatingButtonWindow() {
   })
 
   floatingButtonWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  floatingButtonWindow.on('moved', persistFloatingButtonBounds)
+  floatingButtonWindow.on('blur', () => { if (floatingGesture) endFloatingButtonDrag(true) })
   floatingButtonWindow.on('closed', () => {
+    endFloatingButtonDrag(true)
     floatingButtonWindow = null
     updateTrayMenu()
+  })
+  floatingButtonWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('悬浮按钮渲染进程异常退出,自动重建:', details.reason)
+    floatingButtonWindow?.destroy()
+    createFloatingButtonWindow()
   })
 
   loadRendererRoute(floatingButtonWindow, '/capture-button')
@@ -434,6 +433,7 @@ function updateTrayMenu() {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: '快速笔记', accelerator: captureShortcut, click: () => createCaptureWindow() },
+      { label: '问助手', click: () => assistant?.open() },
       { label: '打开知识库', click: showMainWindow },
       {
         label: floatingButtonWindow && !floatingButtonWindow.isDestroyed() && floatingButtonWindow.isVisible() ? '隐藏悬浮按钮' : '显示悬浮按钮',
@@ -534,9 +534,8 @@ async function generateMetadataForEntry(entryId: string) {
 
     const shouldApplyTags = entry.tags.length === 0 && metadata.tags && metadata.tags.length > 0
 
-    // 用户手动写了标题则保留，只在标题为自动生成时才用 AI 替换
-    const autoTitle = generateEntryTitle(entry.contentMd, entry.source)
-    const title = entry.title === autoTitle ? metadata.title : undefined
+    // 只有标记为"自动生成"的标题才允许被 AI 替换；用户手动写过的标题永远不动
+    const title = entry.titleIsAuto ? metadata.title : undefined
 
     const updated = await knowledgeRepository.updateEntryMetadata({
       id: entry.id,
@@ -710,10 +709,10 @@ ipcMain.handle('capture:openWindow', () => {
 ipcMain.handle('capture:showFloatingButton', () => {
   createFloatingButtonWindow()
 })
-ipcMain.handle('capture:floatingDragStart', () => {
-  startFloatingButtonDrag()
+ipcMain.handle('capture:floatingDragStart', (event, point?: { x: number; y: number }) => {
+  if (event.sender === floatingButtonWindow?.webContents) startFloatingButtonDrag(point)
 })
-ipcMain.handle('capture:floatingDragEnd', () => endFloatingButtonDrag())
+ipcMain.handle('capture:floatingDragEnd', (event, cancelled?: boolean) => event.sender === floatingButtonWindow?.webContents ? endFloatingButtonDrag(Boolean(cancelled)) : { moved: true })
 ipcMain.handle('capture:closeCurrentWindow', (event) => {
   const senderWindow = BrowserWindow.fromWebContents(event.sender)
   if (senderWindow && senderWindow === captureWindow) {
@@ -743,12 +742,25 @@ app.whenReady().then(() => {
   ensureLaunchAtLogin()
   createTray()
   registerGlobalShortcuts()
+  assistant = installAssistant({
+    load: loadRendererRoute,
+    webPreferences: sharedWebPreferences,
+    settings: () => { if (!knowledgeDb) throw new Error('数据库尚未就绪'); return readAiRuntimeSettings(knowledgeDb, keyStorage) },
+    capture: () => { createCaptureWindow() },
+    openSettings: () => { const window = createMainWindow(); loadRendererRoute(window, '/settings'); window.show(); window.focus() },
+    anchor: () => floatingButtonWindow?.isVisible() ? floatingButtonWindow.getBounds() : undefined,
+    save: async input => { const entry = await ensureRepository().createEntry(input); notifyKnowledgeEntriesChanged(); metadataQueue.enqueue(entry.id); return entry.id },
+  })
   createFloatingButtonWindow()
   showMainWindow()
 
   screen.on('display-added', correctFloatingButtonBounds)
   screen.on('display-removed', correctFloatingButtonBounds)
   screen.on('display-metrics-changed', correctFloatingButtonBounds)
+
+  powerMonitor.on('resume', reassertFloatingButtonTopmost)
+  powerMonitor.on('unlock-screen', reassertFloatingButtonTopmost)
+  floatingButtonTopmostTimer = setInterval(reassertFloatingButtonTopmost, floatingButtonTopmostIntervalMs)
 
   app.on('activate', () => {
     showMainWindow()
@@ -763,9 +775,14 @@ app.on('second-instance', () => {
 
 app.on('before-quit', () => {
   isQuitting = true
+  endFloatingButtonDrag(true)
   persistFloatingButtonBounds()
   stopSourcePolling()
   globalShortcut.unregisterAll()
+  if (floatingButtonTopmostTimer) {
+    clearInterval(floatingButtonTopmostTimer)
+    floatingButtonTopmostTimer = null
+  }
 })
 
 app.on('will-quit', () => {

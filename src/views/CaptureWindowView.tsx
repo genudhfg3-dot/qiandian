@@ -344,7 +344,7 @@ export function CaptureWindowView() {
     savePromiseRef.current = (async () => {
       try {
         const payload = {
-          title: draft.draftTitle.trim() || generateEntryTitle(draft.contentMd, draft.source),
+          title: draft.draftTitle.trim() || undefined,
           contentMd: draft.contentMd,
           source: draft.source,
           tagNames: draft.selectedTagNames,

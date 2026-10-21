@@ -1,5 +1,6 @@
 ﻿import TurndownService from 'turndown'
 import type { SourceInfo } from '../../src/domain/knowledge'
+import { buildTableMarkdown } from '../../src/utils/markdownTable'
 
 export interface CapturedClipboardImage {
   path: string
@@ -25,6 +26,14 @@ export interface ClipboardReadResult {
   source?: SourceInfo
 }
 
+// electron/** 的 tsconfig 不含 DOM 类型库（Node 环境），但 turndown 在运行时确实
+// 用一个实现了 querySelectorAll/textContent 的 DOM-like 节点调用 replacement 回调。
+// 这里只描述我们用到的最小结构，避免为了几个字段就给整个项目引入 DOM lib。
+interface MinimalDomElement {
+  textContent: string | null
+  querySelectorAll(selector: string): ArrayLike<MinimalDomElement>
+}
+
 const turndown = new TurndownService({
   headingStyle: 'atx',
   bulletListMarker: '-',
@@ -35,6 +44,24 @@ turndown.addRule('ignoreHtmlImages', {
   filter: 'img',
   replacement() {
     return ''
+  },
+})
+
+// Excel/WPS 复制出来的表格 HTML 全程只用 <td>，从不带 <th>/<thead>，
+// 所以这里不依赖表头语义标签，统一把第一行当作表头处理。
+turndown.addRule('table', {
+  filter: (node) => (node as unknown as { nodeName: string }).nodeName === 'TABLE',
+  replacement(_content, node) {
+    const table = node as unknown as MinimalDomElement
+    const rows = Array.from(table.querySelectorAll('tr'))
+      .map((row) =>
+        Array.from(row.querySelectorAll('th, td')).map((cell) => (cell.textContent ?? '').replace(/\s+/g, ' ').trim()),
+      )
+      .filter((cells) => cells.length > 0)
+    if (rows.length === 0) {
+      return ''
+    }
+    return `\n\n${buildTableMarkdown(rows)}\n\n`
   },
 })
 
