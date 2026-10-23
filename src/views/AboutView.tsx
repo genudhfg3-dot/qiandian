@@ -13,6 +13,11 @@ interface Release {
 
 const releases: Release[] = [
   {
+    version: '1.2.2',
+    date: '2026-10-23',
+    sections: [{ title: '问答窗口修复', items: ['修复连续问答后输入栏下方出现大块空白、窗口出现双层滚动条的问题。长回答仅在消息区滚动，输入栏始终保持在底部。'] }],
+  },
+  {
     version: '1.2.1',
     date: '2026-10-21',
     sections: [{

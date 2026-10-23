@@ -83,6 +83,30 @@ app.whenReady().then(async () => {
     for (let i = 0; i < 80; i++) { if (!(await js('window.assistantApi.state()')).busy) break; await delay(50) }
     await delay(200)
     writeFileSync(join(dir, 'conversation.png'), (await window.webContents.capturePage()).toPNG())
+    const layoutState = await js('window.assistantApi.state()')
+    layoutState.messages = Array.from({ length: 16 }, (_, i) => ({ id: `layout-${i}`, role: i % 2 ? 'assistant' : 'user', text: i % 2 ? ('较长回答，用于检查连续问答时页面的滚动范围。\n\n'.repeat(30)) : '继续解释一下', images: [], status: 'done', firstTokenMs: i % 2 ? 800 : undefined }))
+    window.webContents.send('assistant:state', layoutState)
+    await delay(150)
+    await js('document.querySelector("main").scrollTop = document.querySelector("main").scrollHeight; document.querySelector("textarea").focus(); window.scrollTo(0,99999)')
+    await delay(100)
+    for (const [width, height, zoom] of [[440, 660, 1], [360, 520, 1.25], [600, 800, 1.5]]) {
+      window.setSize(width, height); window.webContents.setZoomFactor(zoom)
+      for (const draft of ['多行输入\n'.repeat(20), '']) {
+        window.webContents.send('assistant:state', { ...layoutState, draft })
+        await delay(150)
+        await js('document.querySelector("main").scrollTop = document.querySelector("main").scrollHeight; document.querySelector("textarea").focus(); window.scrollTo(0,99999)')
+        await delay(50)
+        const geometry = await js(`({height:innerHeight, scrollHeight:document.documentElement.scrollHeight, scrollY, headerTop:document.querySelector('header').getBoundingClientRect().top, footerBottom:document.querySelector('footer').getBoundingClientRect().bottom, messageOverflow:document.querySelector('main').scrollHeight>document.querySelector('main').clientHeight})`)
+        assert.equal(geometry.scrollY, 0, 'Only message history should scroll; document must remain stationary')
+        assert.equal(geometry.headerTop, 0, 'Header must remain visible')
+        assert.ok(geometry.scrollHeight <= geometry.height + 1, 'Conversation must not create an outer scrollbar')
+        assert.ok(Math.abs(geometry.footerBottom - geometry.height) <= 1, 'Composer must stay at the window bottom')
+        assert.ok(geometry.messageOverflow, 'Long answers must remain scrollable inside message history')
+      }
+    }
+    window.setSize(440, 660); window.webContents.setZoomFactor(1); await delay(150)
+    writeFileSync(join(dir, 'long-conversation-layout.png'), (await window.webContents.capturePage()).toPNG())
+    console.log('PASS: long conversation, multiline composer, resize and zoom retain a fixed footer without page overflow')
     const hint = new BrowserWindow({ width: 292, height: 96, useContentSize: true, frame: false, show: false, webPreferences: { preload: resolve('dist-electron/preload.cjs'), contextIsolation: true, nodeIntegration: false } })
     await hint.loadFile(resolve('dist/index.html'), { hash: '/assistant-hint' })
     for (const width of [240, 292, 380]) {

@@ -24,11 +24,11 @@ export function AssistantWindowView() {
     const off = api()?.onState(setState)
     const offDelta = api()?.onDelta(delta => setState(current => ({ ...current, messages: current.messages.map(message => message.id === delta.id ? { ...message, text: delta.text, firstTokenMs: delta.firstTokenMs } : message) })))
     void api()?.state().then(setState).catch(error => setLocalError(String(error)))
-    const focus = () => { input.current?.focus(); void api()?.state().then(setState) }
+    const focus = () => { input.current?.focus({ preventScroll: true }); void api()?.state().then(setState) }
     window.addEventListener('focus', focus)
     return () => { off?.(); offDelta?.(); window.removeEventListener('focus', focus) }
   }, [])
-  useEffect(() => { setText(state.draft); if (!state.busy) input.current?.focus() }, [state.draft, state.busy])
+  useEffect(() => { setText(state.draft); if (!state.busy) input.current?.focus({ preventScroll: true }) }, [state.draft, state.busy])
   useEffect(() => { if (nearBottom.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight }, [state.messages])
   useEffect(() => { if (!state.busy) return; const start = Date.now(); setElapsed(0); const timer = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000); return () => clearInterval(timer) }, [state.busy])
   useEffect(() => { const el = input.current; if (el) { el.style.height = '24px'; el.style.height = `${Math.min(el.scrollHeight, 96)}px` } }, [text])
@@ -44,7 +44,7 @@ export function AssistantWindowView() {
   const latest = state.messages.at(-1)
   const error = localError || state.error
   return (
-    <div className="assistant-shell flex h-full flex-col overflow-hidden bg-cream text-ink" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); if (!state.busy) void run(attach(event.dataTransfer.files)) }}>
+    <div className="assistant-shell fixed inset-0 flex flex-col overflow-hidden bg-cream text-ink" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); if (!state.busy) void run(attach(event.dataTransfer.files)) }}>
       <header className="flex shrink-0 items-center gap-1 border-b border-hairline bg-surface px-3 py-1">
         <Heart size={16} className="mr-1 shrink-0 text-terracotta" />
         <h1 className="min-w-0 flex-1 text-[13px] font-medium">随手问</h1>
@@ -53,7 +53,7 @@ export function AssistantWindowView() {
         <button className={`assistant-icon ${state.pinned ? 'text-terracotta bg-cream-soft' : ''}`} title="置顶" aria-label="置顶" aria-pressed={state.pinned} onClick={() => void run(api()?.pin())}><Pin size={16} /></button>
         <button className="assistant-icon" title="收起" aria-label="收起" onClick={() => void run(api()?.hide())}><Minus size={18} /></button>
       </header>
-      <main ref={scroll} className="min-h-0 flex-1 overflow-y-auto px-3 py-3" onScroll={event => { const el = event.currentTarget; nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80 }}>
+      <main ref={scroll} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3" onScroll={event => { const el = event.currentTarget; nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80 }}>
         {!state.messages.length && <div className="py-7">
           <p className="text-[23px] font-medium tracking-tight">看到不懂的，随手问。</p>
           <p className="mt-3 text-[13px] leading-6 text-soft-ink">粘贴截图或文字，翻译、解释，或直接提问。<br />有用的答案，可以随手存进千点。</p>
@@ -68,7 +68,6 @@ export function AssistantWindowView() {
             {message.role === 'assistant' && message.status !== 'streaming' && message.text && <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-soft-ink">
               <button className="inline-flex items-center gap-1 hover:text-ink" onClick={() => void run(navigator.clipboard.writeText(message.text).then(() => setCopied(message.id)))}><Copy size={12} />{copied === message.id ? '已复制' : '复制'}</button>
               <button disabled={saved.includes(message.id)} className="inline-flex items-center gap-1 hover:text-terracotta" onClick={() => { setSaveMessage(message); setSaveText(message.text); setTitle(''); setTags(''); setOriginal(true) }}>{saved.includes(message.id) ? <Check size={12} /> : <Save size={12} />}{saved.includes(message.id) ? '已保存' : '保存到知识库'}</button>
-              {message.firstTokenMs !== undefined && <span className="sr-only">首字 {(message.firstTokenMs / 1000).toFixed(1)} 秒</span>}
             </div>}
           </section>)}
         </div>
